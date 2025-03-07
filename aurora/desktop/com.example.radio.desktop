@@ -1,0 +1,12 @@
+[Desktop Entry]
+Type=Application
+Name=radio
+Comment=A new Flutter project.
+Icon=com.example.radio
+Exec=/usr/bin/com.example.radio
+X-Nemo-Application-Type=silica-qt5
+
+[X-Application]
+Permissions=
+OrganizationName=com.example
+ApplicationName=radio
