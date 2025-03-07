@@ -1,39 +1,16 @@
-# FM Радио Приложение для ОС Аврора
+# radio
 
-## Описание
+A new Flutter project.
 
-Это приложение позволяет пользователям слушать FM-радио на устройствах с ОС Аврора. Приложение имеет простой и интуитивно понятный интерфейс с возможностью выбора радиостанций по различным категориям.
+## Getting Started
 
-## Функции
+This project is a starting point for a Flutter application.
 
-- Прослушивание различных FM-радиостанций
-- Сохранение любимых станций
-- Удобный интерфейс
-- Таймер сна
-- Сортировка по алфавиту/жанру
+A few resources to get you started if this is your first Flutter project:
 
+- [Lab: Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
+- [Cookbook: Useful Flutter samples](https://docs.flutter.dev/cookbook)
 
-## Использование
-
-1. Запустите приложение.
-2. Выберите желаемую радиостанцию из списка.
-3. Слушайте свою любимую музыку или новости!
-
-## Технологии
-
-- Язык программирования: "Dart"
-- Библиотеки: -
-- Используемые API: -
-
-## Дизайн
-
-При создании приложения использован современный и минималистичный подход к дизайну. 
-
-## Связь
-
-Если у вас есть вопросы или предложения, можете обращаться:
-- Email: andrey2001maslov@gmail.com
-- GitHub: andmas898
-
-
-    
+For help getting started with Flutter development, view the
+[online documentation](https://docs.flutter.dev/), which offers tutorials,
+samples, guidance on mobile development, and a full API reference.
