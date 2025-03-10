@@ -1,16 +1,12 @@
-# radio
+# FM-Radio
+FM-Radio — лучшее приложение для онлайн прослушивания ваших любимых радиостанций. Наслаждайтесь любимой музыкой различных жаноровв любое время и в любом месте!
 
-A new Flutter project.
+## Возможности
 
-## Getting Started
+Таймер сна: Установите таймер, чтобы приложение автоматически отключалось через заданное время.
+Сортировка радиостанций: Удобная сортировка по жанрам и алфавиту для быстрого поиска нужной станции.
+Поиск по названию: Легко находите радиостанции по их названию.
+Избранные радиостанции: Добавляйте радиостанции в список избранных для быстрого доступа.
 
-This project is a starting point for a Flutter application.
-
-A few resources to get you started if this is your first Flutter project:
-
-- [Lab: Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Cookbook: Useful Flutter samples](https://docs.flutter.dev/cookbook)
-
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+## Интерфейс
+Приложение имеет строгий и лаконичный интерфейс, который делает управление простым и интуитивно понятным. Вы сможете сосредоточиться на прослушивании, не отвлекаясь на сложные настройки.
