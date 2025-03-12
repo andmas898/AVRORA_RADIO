@@ -18,9 +18,9 @@ Avrora_Radio — лучшее приложение для онлайн прос�
 <h3>Изображения</h3>
 
 <p float="left">
-  <img src="[images/image1.png](https://github.com/andmas898/AVRORA_RADIO/blob/main/assets/3.jpg)" alt="Image 1" width="200" />
-  <img src="[images/image2.png](https://github.com/andmas898/AVRORA_RADIO/blob/main/assets/4.jpg)" alt="Image 2" width="200" />
-  <img src="[images/image3.png](https://github.com/andmas898/AVRORA_RADIO/blob/main/assets/5.jpg)" alt="Image 3" width="200" />
+  <img src="(https://github.com/andmas898/AVRORA_RADIO/blob/main/assets/3.jpg)" alt="Image 1" width="200" />
+  <img src="(https://github.com/andmas898/AVRORA_RADIO/blob/main/assets/4.jpg)" alt="Image 2" width="200" />
+  <img src="(https://github.com/andmas898/AVRORA_RADIO/blob/main/assets/5.jpg)" alt="Image 3" width="200" />
 </p>
 
 ![Иллюстрация к проекту](https://github.com/andmas898/AVRORA_RADIO/blob/main/assets/6.jpg)
