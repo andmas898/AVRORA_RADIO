@@ -15,8 +15,7 @@ Avrora_Radio — лучшее приложение для онлайн прос�
 Приложение имеет строгий и лаконичный интерфейс, который делает управление простым и интуитивно понятным. Вы сможете сосредоточиться на прослушивании, не отвлекаясь на сложные настройки.
 
 ## Галерея 📷
-![Иллюстрация к проекту](https://github.com/andmas898/AVRORA_RADIO/blob/main/assets/3.jpg)
-![Иллюстрация к проекту](https://github.com/andmas898/AVRORA_RADIO/blob/main/assets/4.jpg)
-![Иллюстрация к проекту](https://github.com/andmas898/AVRORA_RADIO/blob/main/assets/5.jpg)
-![Иллюстрация к проекту](https://github.com/andmas898/AVRORA_RADIO/blob/main/assets/6.jpg)
+![Иллюстрация к проекту](https://github.com/andmas898/AVRORA_RADIO/blob/main/assets/3.jpg) ![Иллюстрация к проекту](https://github.com/andmas898/AVRORA_RADIO/blob/main/assets/4.jpg)
+
+![Иллюстрация к проекту](https://github.com/andmas898/AVRORA_RADIO/blob/main/assets/5.jpg) ![Иллюстрация к проекту](https://github.com/andmas898/AVRORA_RADIO/blob/main/assets/6.jpg)
 ![Иллюстрация к проекту](https://github.com/andmas898/AVRORA_RADIO/blob/main/assets/7.jpg)
