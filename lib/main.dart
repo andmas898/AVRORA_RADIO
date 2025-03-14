@@ -2,10 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:audioplayers/audioplayers.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
-import 'dart:developer' as developer;
 import 'dart:async';
 import 'dart:math';
 import 'package:flutter/services.dart'; // Импортируем для SystemNavigator
+//import 'package:shared_preferences/shared_preferences.dart';
+//import 'dart:isolate';
+
 
 void main() {
   runApp(const MyApp());
@@ -18,13 +20,14 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
-      theme: ThemeData.dark().copyWith(
-        scaffoldBackgroundColor: const Color.fromARGB(255, 245, 245, 245),
+      theme: ThemeData.light().copyWith(
+        scaffoldBackgroundColor: Colors.white, // Фон в дневном режиме
       ),
       home: const RadioScreen(),
     );
   }
 }
+
 
 class RadioScreen extends StatefulWidget {
   const RadioScreen({super.key});
@@ -38,8 +41,8 @@ class _RadioScreenState extends State<RadioScreen>
   final AudioPlayer _audioPlayer = AudioPlayer();
   List<dynamic> _stations = [];
   List<dynamic> _filteredStations = [];
-  List<int> _nonFunctionalStations = [];
-  List<String> _blockedStations = [
+  final List<int> _nonFunctionalStations = [];
+  final List<String> _blockedStations = [
     "Dance Wave!",
     "REYFM",
     "Iran International",
@@ -50,23 +53,25 @@ class _RadioScreenState extends State<RadioScreen>
   bool _isLoadingMore = false;
   final int _loadLimit = 20;
   TabController? _tabController;
-  Set<int> _favoriteStations = {};
-  TextEditingController _searchController = TextEditingController();
+  final Set<int> _favoriteStations = {};
+  final TextEditingController _searchController = TextEditingController();
   bool _isNightMode = false;
+  int _page = 0;
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 4, vsync: this); // Изменено на 4
+    _tabController = TabController(length: 3, vsync: this);
     fetchStations();
   }
 
   Future<void> fetchStations({bool loadMore = false}) async {
-    if (loadMore) {
-      setState(() => _isLoadingMore = true);
-    }
+    if (loadMore && _isLoadingMore) return;
 
-    const apiUrl = "https://de1.api.radio-browser.info/json/stations/topvote";
+    setState(() => _isLoadingMore = true);
+
+    final apiUrl =
+        "https://de1.api.radio-browser.info/json/stations/topvote?limit=${_loadLimit}&offset=${_page * _loadLimit}";
     try {
       final response = await http.get(Uri.parse(apiUrl));
 
@@ -75,100 +80,276 @@ class _RadioScreenState extends State<RadioScreen>
 
         setState(() {
           if (loadMore) {
-            _stations.addAll(
-                fetchedStations.skip(_stations.length).take(_loadLimit));
+            _stations.addAll(fetchedStations);
           } else {
-            _stations = fetchedStations.take(_loadLimit).toList();
+            _stations = fetchedStations;
           }
-          _filterStationsByTab(
-              _tabController!.index); // Show the current tab by default
+          _filterStationsByTab(_tabController!.index);
+          _isLoadingMore = false;
         });
       } else {
-        developer.log("Ошибка загрузки API: ${response.statusCode}");
-      }
-    } catch (e) {
-      developer.log("Ошибка сети: $e");
-    } finally {
-      if (loadMore) {
+        print("Ошибка загрузки API: ${response.statusCode}");
         setState(() => _isLoadingMore = false);
       }
-    }
-  }
-
-  void _playPauseStation(int index) async {
-    if (_filteredStations.isEmpty || index >= _filteredStations.length) return;
-
-    try {
-      if (_currentIndex == index && _isPlaying) {
-        await _audioPlayer.pause();
-        setState(() {
-          _isPlaying = false;
-        });
-      } else {
-        String url = _filteredStations[index]['urlResolved'] ??
-            _filteredStations[index]['url'];
-        await _audioPlayer.play(UrlSource(url));
-        setState(() {
-          _currentIndex = index;
-          _isPlaying = true;
-        });
-      }
-
-      // Open the station details screen
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (context) => RadioStationScreen(
-            station: _filteredStations[index],
-            onPrevious: () => _playPauseStation(
-                (index - 1 + _filteredStations.length) %
-                    _filteredStations.length),
-            onNext: () =>
-                _playPauseStation((index + 1) % _filteredStations.length),
-            onPause: () => _playPauseStation(index),
-            isPlaying: _isPlaying,
-            isNightMode: _isNightMode, // Передаем состояние ночного режима
-          ),
-        ),
-      );
     } catch (e) {
-      developer.log("Error playing audio: $e");
-      // Handle the error, e.g., show a message to the user
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Не удалось воспроизвести радиостанцию: $e")),
-      );
-      // Mark the station as non-functional
-      setState(() {
-        _nonFunctionalStations.add(index);
-      });
+      print("Ошибка сети: $e");
+      setState(() => _isLoadingMore = false);
     }
   }
 
-  void _nextStation() {
-    if (_filteredStations.isEmpty) return;
+ void _playPauseStation(int index) async {
+  if (_filteredStations.isEmpty || index >= _filteredStations.length) return;
 
-    int nextIndex = (_currentIndex + 1) % _filteredStations.length;
-    _playPauseStation(nextIndex);
-  }
-
-  void _previousStation() {
-    if (_filteredStations.isEmpty) return;
-
-    int prevIndex = (_currentIndex - 1 + _filteredStations.length) %
-        _filteredStations.length;
-    _playPauseStation(prevIndex);
-  }
-
-  void _toggleFavorite(int index) {
+  if (_currentIndex == index && _isPlaying) {
+    await _audioPlayer.pause();
     setState(() {
-      if (_favoriteStations.contains(index)) {
-        _favoriteStations.remove(index);
-      } else {
-        _favoriteStations.add(index);
-      }
-      _filterStationsByTab(_tabController!.index);
+      _isPlaying = false;
+    });
+  } else {
+    String url = _filteredStations[index]['urlResolved'] ??
+        _filteredStations[index]['url'];
+    await _audioPlayer.play(UrlSource(url));
+    setState(() {
+      _currentIndex = index;
+      _isPlaying = true;
     });
   }
+
+  // Обновляем состояние текущей радиостанции
+  showDialog(
+    context: context,
+    builder: (context) {
+      return AlertDialog(
+        backgroundColor: _isNightMode
+            ? const Color(0xFF6D0108)
+            : const Color(0xFFF0302E),
+        title: Center(
+          child: Text(
+            _filteredStations[index]['name'] ?? 'Без названия',
+            textAlign: TextAlign.center,
+          ),
+        ),
+        content: Container(
+          width: 300,
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [
+                _isNightMode
+                    ? const Color(0xFF6D0108)
+                    : const Color(0xFFF0302E),
+                _isNightMode
+                    ? const Color(0xFF90013F)
+                    : const Color(0xFFFE533E),
+              ],
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+            ),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              CircleAvatar(
+                backgroundImage:
+                    NetworkImage(_filteredStations[index]['favicon'] ?? ''),
+                radius: 40,
+              ),
+              const SizedBox(height: 16),
+              Text(
+                _filteredStations[index]['country'] ?? 'Неизвестная страна',
+                style: const TextStyle(fontSize: 16, color: Colors.white),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 16),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  IconButton(
+                    icon: const Icon(Icons.arrow_back_ios, color: Colors.white),
+                    onPressed: () {
+                      _playPauseStation(
+                          (index - 1 + _filteredStations.length) %
+                              _filteredStations.length);
+                      Navigator.of(context).pop(); // Закрываем диалог
+                    },
+                  ),
+                  IconButton(
+                    icon: Icon(
+                      _isPlaying
+                          ? Icons.pause_circle_filled
+                          : Icons.play_circle_filled,
+                      color: Colors.white,
+                      size: 50,
+                    ),
+                    onPressed: () {
+                      _playPauseStation(index);
+                      Navigator.of(context).pop(); // Закрываем диалог
+                    },
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.arrow_forward_ios, color: Colors.white),
+                    onPressed: () {
+                      _playPauseStation(
+                          (index + 1) % _filteredStations.length);
+                      Navigator.of(context).pop(); // Закрываем диалог
+                    },
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [IconButton(
+                                      icon: Icon(
+                                        _favoriteStations.contains(index)
+                                            ? Icons.favorite
+                                            : Icons.favorite_border,
+                                        color: const Color.fromARGB(255, 250, 249, 249),
+                                      ),
+                                      onPressed: () {
+                                        setState(() {
+                                          if (_favoriteStations
+                                              .contains(index)) {
+                                            _favoriteStations.remove(index);
+                                          } else {
+                                            _favoriteStations.add(index);
+                                          }
+                                          _filterStationsByTab(
+                                              _tabController!.index);
+                                        });
+                                      },
+                                    ),
+              IconButton(
+                icon: Icon(Icons.access_time, color: Colors.white),
+                onPressed: () {
+                  showDialog(
+                    context: context,
+                    builder: (BuildContext context) {
+                      int selectedMinutes = 0;
+                      int selectedSeconds = 0;
+
+                      return AlertDialog(
+                        backgroundColor: Colors.white,
+                        title: Text("Таймер сна",
+                            style: TextStyle(color: Colors.black)),
+                        content: StatefulBuilder(
+                          builder: (BuildContext context, StateSetter setState) {
+                            return Container(
+                              width: 300,
+                              height: 200,
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Text("Настройте таймер сна",
+                                      style: TextStyle(color: Colors.black)),
+                                  Row(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      Container(
+                                        decoration: BoxDecoration(
+                                          color: Colors.white,
+                                          borderRadius: BorderRadius.circular(5),
+                                        ),
+                                        child: DropdownButton<int>(
+                                          value: selectedMinutes,
+                                          dropdownColor: Colors.white,
+                                          items: List.generate(121, (index) => index)
+                                              .map((int value) {
+                                            return DropdownMenuItem<int>(
+                                              value: value,
+                                              child: Text("$value минут",
+                                                  style: TextStyle(
+                                                      color: Colors.black)),
+                                            );
+                                          }).toList(),
+                                          onChanged: (int? newValue) {
+                                            if (newValue != null) {
+                                              setState(() {
+                                                selectedMinutes = newValue;
+                                              });
+                                            }
+                                          },
+                                        ),
+                                      ),
+                                      SizedBox(width: 20),
+                                      Container(
+                                        decoration: BoxDecoration(
+                                          color: Colors.white,
+                                          borderRadius: BorderRadius.circular(5),
+                                        ),
+                                        child: DropdownButton<int>(
+                                          value: selectedSeconds,
+                                          dropdownColor: Colors.white,
+                                          items: List.generate(60, (index) => index)
+                                              .map((int value) {
+                                            return DropdownMenuItem<int>(
+                                              value: value,
+                                              child: Text("$value секунд",
+                                                  style: TextStyle(
+                                                      color: Colors.black)),
+                                            );
+                                          }).toList(),
+                                          onChanged: (int? newValue) {
+                                            if (newValue != null) {
+                                              setState(() {
+                                                selectedSeconds = newValue;
+                                              });
+                                            }
+                                          },
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  SizedBox(height: 20),
+                                  Text(
+                                      "Выбрано: $selectedMinutes минут и $selectedSeconds секунд",
+                                      style: TextStyle(color: Colors.black)),
+                                ],
+                              ),
+                            );
+                          },
+                        ),
+                        actions: [
+                          TextButton(
+                            child: Text("Свернуть",
+                                style: TextStyle(color: Colors.black)),
+                            onPressed: () {
+                              Navigator.of(context).pop();
+                            },
+                          ),
+                          TextButton(
+                            child: Text("Установить",
+                                style: TextStyle(color: Colors.black)),
+                            onPressed: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => SleepTimerScreen(
+                                    audioPlayer: _audioPlayer,
+                                    minutes: selectedMinutes,
+                                    seconds: selectedSeconds,
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
+                        ],
+                      );
+                    },
+                  );
+                },
+              ),],),
+            ],
+          ),
+        )
+  );});
+  }
+
+  
+
 
   void _filterStationsByTab(int tabIndex) {
     if (tabIndex == 1) {
@@ -186,25 +367,13 @@ class _RadioScreenState extends State<RadioScreen>
       setState(() {
         _filteredStations = _getRandomStations(5);
       });
-    } else if (tabIndex == 3) {
-      // Sleep Timer tab
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-            builder: (context) => SleepTimerScreen(
-                  audioPlayer: _audioPlayer,
-                )),
-      );
     } else {
       // All stations tab
       setState(() {
         _filteredStations = _stations
-            .asMap()
-            .entries
-            .where((entry) =>
-                !_nonFunctionalStations.contains(entry.key) &&
-                !_blockedStations.contains(entry.value['name']))
-            .map((entry) => entry.value)
+            .where((station) =>
+                !_nonFunctionalStations.contains(_stations.indexOf(station)) &&
+                !_blockedStations.contains(station['name']))
             .toList();
       });
     }
@@ -232,17 +401,11 @@ class _RadioScreenState extends State<RadioScreen>
     List<dynamic> filtered = _stations
         .where((station) => (station['name'] as String)
             .toLowerCase()
-            .startsWith(query.toLowerCase()))
+            .contains(query.toLowerCase()))
         .toList();
 
     setState(() {
       _filteredStations = filtered;
-    });
-  }
-
-  void _toggleNightMode() {
-    setState(() {
-      _isNightMode = !_isNightMode;
     });
   }
 
@@ -258,7 +421,6 @@ class _RadioScreenState extends State<RadioScreen>
   Widget build(BuildContext context) {
     return WillPopScope(
       onWillPop: () async {
-        // Always return to the main screen when back is pressed
         if (_tabController!.index != 0) {
           _tabController!.animateTo(0);
           return false;
@@ -267,38 +429,33 @@ class _RadioScreenState extends State<RadioScreen>
       },
       child: Scaffold(
         appBar: AppBar(
-          title: const Text("Online Radio"),
-          flexibleSpace: Container(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [
-                  _isNightMode
-                      ? Colors.blue[700]!
-                      : Color.fromARGB(252, 230, 78, 78),
-                  _isNightMode
-                      ? Colors.blue[400]!
-                      : Color.fromARGB(255, 242, 64, 40)
-                ],
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
+          backgroundColor:
+              _isNightMode ? const Color(0xFF670000) : const Color(0xFFF0302E),
+          title: Center(
+            child: const Text(
+              "Online Radio",
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+                color: Colors.white, // Цвет текста белый
               ),
             ),
           ),
-          elevation: 0,
           bottom: TabBar(
             controller: _tabController,
             tabs: const [
               Tab(text: "Радиостанции"),
               Tab(text: "Избранное"),
               Tab(text: "Рекомендации"),
-              Tab(text: "Таймер сна"), // Новый таб
             ],
             indicator: const UnderlineTabIndicator(
               borderSide: BorderSide(width: 2.0, color: Colors.white),
               insets: EdgeInsets.symmetric(horizontal: 16.0),
             ),
-            labelStyle:
-                const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+            labelStyle: const TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+                color: Colors.white), // Цвет текста табов белый
             onTap: (index) => _filterStationsByTab(index),
           ),
           actions: [
@@ -307,268 +464,196 @@ class _RadioScreenState extends State<RadioScreen>
                 _isNightMode ? Icons.wb_sunny : Icons.nightlight_round,
                 color: Colors.white,
               ),
-              onPressed: _toggleNightMode,
+              onPressed: () {
+                setState(() {
+                  _isNightMode = !_isNightMode;
+                });
+              },
             ),
+            
+            
           ],
         ),
-        body: Column(
-          children: [
-            Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: TextField(
-                controller: _searchController,
-                onChanged: _filterStations,
-                decoration: InputDecoration(
-                  hintText: "Поиск",
-                  prefixIcon: const Icon(Icons.search),
-                  filled: true,
-                  fillColor: _isNightMode
-                      ? const Color.fromARGB(255, 30, 30, 30)
-                      : const Color.fromARGB(255, 255, 255, 255),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(25),
-                    borderSide: BorderSide.none,
+        body: Container(
+          color: _isNightMode
+              ? const Color(0xFF2F0101)
+              : Colors.white, // Фон в зависимости от режима
+          child: Column(
+            children: [
+              Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: TextField(
+                  controller: _searchController,
+                  onChanged: _filterStations,
+                  decoration: InputDecoration(
+                    hintText: "Поиск",
+                    prefixIcon: const Icon(Icons.search),
+                    filled: true,
+                    fillColor: _isNightMode
+                        ? const Color.fromARGB(255, 30, 30, 30)
+                        : const Color.fromARGB(255, 255, 255, 255),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(25),
+                      borderSide: BorderSide.none,
+                    ),
                   ),
+                  style: TextStyle(
+                      color: _isNightMode
+                          ? Colors.white
+                          : Color.fromARGB(176, 10, 10, 10)),
                 ),
-                style: TextStyle(
-                    color: _isNightMode
-                        ? Colors.white
-                        : Color.fromARGB(176, 10, 10, 10)),
               ),
-            ),
-            Expanded(
-              child: _filteredStations.isEmpty
-                  ? const Center(child: CircularProgressIndicator())
-                  : NotificationListener<ScrollEndNotification>(
-                      onNotification: (scrollEnd) {
-                        if (scrollEnd.metrics.pixels ==
-                                scrollEnd.metrics.maxScrollExtent &&
-                            !_isLoadingMore) {
-                          fetchStations(loadMore: true);
-                        }
-                        return true;
-                      },
-                      child: ListView.builder(
-                        itemCount:
-                            _filteredStations.length + (_isLoadingMore ? 1 : 0),
-                        itemBuilder: (context, index) {
-                          if (index >= _filteredStations.length) {
-                            return const Padding(
-                              padding: EdgeInsets.all(10.0),
-                              child: Center(child: CircularProgressIndicator()),
-                            );
-                          }
-
-                          final station = _filteredStations[index];
-                          bool isActive = index == _currentIndex && _isPlaying;
-
-                          return GestureDetector(
-                            onTap: () => _playPauseStation(index),
-                            child: Container(
-                              margin: const EdgeInsets.symmetric(
-                                  horizontal: 16, vertical: 8),
-                              padding: const EdgeInsets.all(12),
-                              decoration: BoxDecoration(
-                                borderRadius: BorderRadius.circular(15),
-                                gradient: isActive
-                                    ? LinearGradient(colors: [
-                                        _isNightMode
-                                            ? const Color.fromARGB(
-                                                255, 0, 0, 255) // Темно-синий
-                                            : const Color.fromARGB(
-                                                255, 255, 0, 0), // Красный
-                                        _isNightMode
-                                            ? const Color.fromARGB(
-                                                255, 0, 0, 200) // Темно-синий
-                                            : const Color.fromARGB(
-                                                255, 255, 255, 0) // Желтый
-                                      ])
-                                    : LinearGradient(colors: [
-                                        _isNightMode
-                                            ? const Color.fromARGB(
-                                                255, 50, 50, 50)
-                                            : const Color.fromARGB(
-                                                255, 255, 255, 255),
-                                        _isNightMode
-                                            ? const Color.fromARGB(
-                                                255, 70, 70, 70)
-                                            : const Color.fromARGB(
-                                                255, 230, 222, 222)
-                                      ]),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: Colors.black.withOpacity(0.5),
-                                    blurRadius: 10,
-                                    spreadRadius: 2,
-                                  ),
-                                ],
-                              ),
-                              child: Row(
-                                children: [
-                                  Icon(
-                                    isActive
-                                        ? Icons.radio
-                                        : Icons.radio_outlined,
+              Expanded(
+                child: _filteredStations.isEmpty
+                    ? Center(
+                        child: _tabController!.index == 1
+                            ? Text("Вы пока ничего не выбрали",
+                                style: TextStyle(
                                     color: _isNightMode
                                         ? Colors.white
-                                        : const Color.fromARGB(255, 4, 4, 4),
-                                    size: 30,
-                                  ),
-                                  const SizedBox(width: 15),
-                                  CircleAvatar(
-                                    backgroundImage:
-                                        NetworkImage(station['favicon'] ?? ''),
-                                    radius: 20,
-                                  ),
-                                  const SizedBox(width: 15),
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          station['name'] ?? 'Без названия',
-                                          style: TextStyle(
-                                              fontSize: 18,
-                                              fontWeight: FontWeight.bold,
-                                              color: _isNightMode
-                                                  ? Colors.white
-                                                  : Color.fromARGB(
-                                                      255, 18, 18, 18)),
-                                        ),
-                                        Text(
-                                          station['country'] ??
-                                              'Неизвестная страна',
-                                          style: TextStyle(
-                                              fontSize: 14,
-                                              color: _isNightMode
-                                                  ? Colors.white70
-                                                  : const Color.fromARGB(
-                                                      255, 16, 15, 15)),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                  IconButton(
-                                    icon: Icon(
-                                      _favoriteStations.contains(index)
-                                          ? Icons.favorite
-                                          : Icons.favorite_border,
-                                      color: Colors.red,
-                                    ),
-                                    onPressed: () => _toggleFavorite(index),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          );
+                                        : Colors.black))
+                            : CircularProgressIndicator(),
+                      )
+                    : NotificationListener<ScrollEndNotification>(
+                        onNotification: (scrollEnd) {
+                          if (scrollEnd.metrics.pixels ==
+                                  scrollEnd.metrics.maxScrollExtent &&
+                              !_isLoadingMore) {
+                            _page++;
+                            fetchStations(loadMore: true);
+                          }
+                          return true;
                         },
+                        child: ListView.builder(
+                          itemCount: _filteredStations.length +
+                              (_isLoadingMore ? 1 : 0),
+                          itemBuilder: (context, index) {
+                            if (index >= _filteredStations.length) {
+                              return const Padding(
+                                padding: EdgeInsets.all(10.0),
+                                child:
+                                    Center(child: CircularProgressIndicator()),
+                              );
+                            }
+
+                            final station = _filteredStations[index];
+                            bool isActive =
+                                index == _currentIndex && _isPlaying;
+
+                            return GestureDetector(
+                              onTap: () => _playPauseStation(index),
+                              child: Container(
+                                margin: const EdgeInsets.symmetric(
+                                    horizontal: 16, vertical: 8),
+                                padding: const EdgeInsets.all(12),
+                                decoration: BoxDecoration(
+                                  borderRadius: BorderRadius.circular(15),
+                                  gradient: isActive
+                                      ? LinearGradient(colors: [
+                                          _isNightMode
+                                              ? const Color.fromARGB(
+                                                  255, 139, 4, 4)
+                                              : const Color.fromARGB(
+                                                  255, 255, 0, 0),
+                                          _isNightMode
+                                              ? const Color.fromARGB(
+                                                  255, 73, 5, 5)
+                                              : const Color.fromARGB(
+                                                  255, 255, 255, 0)
+                                        ])
+                                      : LinearGradient(colors: [
+                                          _isNightMode
+                                              ? const Color.fromARGB(
+                                                  255, 50, 50, 50)
+                                              : const Color.fromARGB(
+                                                  255, 255, 255, 255),
+                                          _isNightMode
+                                              ? const Color.fromARGB(
+                                                  255, 70, 70, 70)
+                                              : const Color.fromARGB(
+                                                  255, 230, 222, 222)
+                                        ]),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: Colors.black.withOpacity(0.5),
+                                      blurRadius: 10,
+                                      spreadRadius: 2,
+                                    ),
+                                  ],
+                                ),
+                                child: Row(
+                                  children: [
+                                    Icon(
+                                      isActive
+                                          ? Icons.radio
+                                          : Icons.radio_outlined,
+                                      color: _isNightMode
+                                          ? Colors.white
+                                          : const Color.fromARGB(255, 4, 4, 4),
+                                      size: 30,
+                                    ),
+                                    const SizedBox(width: 15),
+                                    CircleAvatar(
+                                      backgroundImage: NetworkImage(
+                                          station['favicon'] ?? ''),
+                                      radius: 20,
+                                    ),
+                                    const SizedBox(width: 15),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            station['name'] ?? 'Без названия',
+                                            style: TextStyle(
+                                                fontSize: 18,
+                                                fontWeight: FontWeight.bold,
+                                                color: _isNightMode
+                                                    ? Colors.white
+                                                    : Color.fromARGB(
+                                                        255, 18, 18, 18)),
+                                          ),
+                                          Text(
+                                            station['country'] ??
+                                                'Неизвестная страна',
+                                            style: TextStyle(
+                                                fontSize: 14,
+                                                color: _isNightMode
+                                                    ? Colors.white70
+                                                    : Color.fromARGB(
+                                                        255, 10, 10, 10)),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                    IconButton(
+                                      icon: Icon(
+                                        _favoriteStations.contains(index)
+                                            ? Icons.favorite
+                                            : Icons.favorite_border,
+                                        color: Colors.red,
+                                      ),
+                                      onPressed: () {
+                                        setState(() {
+                                          if (_favoriteStations
+                                              .contains(index)) {
+                                            _favoriteStations.remove(index);
+                                          } else {
+                                            _favoriteStations.add(index);
+                                          }
+                                          _filterStationsByTab(
+                                              _tabController!.index);
+                                        });
+                                      },
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            );
+                          },
+                        ),
                       ),
-                    ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class RadioStationScreen extends StatefulWidget {
-  final Map<String, dynamic> station;
-  final VoidCallback onPrevious;
-  final VoidCallback onNext;
-  final VoidCallback onPause;
-  final bool isPlaying;
-  final bool isNightMode; // Добавлено поле для ночного режима
-
-  const RadioStationScreen({
-    super.key,
-    required this.station,
-    required this.onPrevious,
-    required this.onNext,
-    required this.onPause,
-    required this.isPlaying,
-    required this.isNightMode, // Передаем состояние ночного режима
-  });
-
-  @override
-  State<RadioStationScreen> createState() => _RadioStationScreenState();
-}
-
-class _RadioStationScreenState extends State<RadioStationScreen> {
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(widget.station['name'] ?? 'Без названия'),
-        backgroundColor: widget.isNightMode
-            ? const Color(0xFF001F3F)
-            : const Color(0xFF2F0101), // Темно-синий в ночном режиме
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
-          onPressed: () => Navigator.of(context).pop(),
-        ),
-      ),
-      body: Center(
-        child: Container(
-          width: 300, // Limit the width of the square
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              colors: [
-                widget.isNightMode
-                    ? Colors.blue[700]!
-                    : Color.fromARGB(252, 230, 78, 78),
-                widget.isNightMode
-                    ? Colors.blue[400]!
-                    : Color.fromARGB(255, 242, 64, 40)
-              ],
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-            ),
-            borderRadius: BorderRadius.circular(15),
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              CircleAvatar(
-                backgroundImage: NetworkImage(widget.station['favicon'] ?? ''),
-                radius: 40,
-              ),
-              const SizedBox(height: 16),
-              Text(
-                widget.station['name'] ?? 'Без названия',
-                style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold),
-                textAlign: TextAlign.center, // Center the text
-              ),
-              const SizedBox(height: 16),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  IconButton(
-                    icon: const Icon(Icons.arrow_back_ios,
-                        color: Colors.white, size: 40),
-                    onPressed: widget.onPrevious,
-                  ),
-                  IconButton(
-                    icon: Icon(
-                      widget.isPlaying
-                          ? Icons.pause_circle_filled
-                          : Icons.play_circle_filled,
-                      color: Colors.white,
-                      size: 50,
-                    ),
-                    onPressed: widget.onPause,
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.arrow_forward_ios,
-                        color: Colors.white, size: 40),
-                    onPressed: widget.onNext,
-                  ),
-                ],
               ),
             ],
           ),
@@ -578,10 +663,19 @@ class _RadioStationScreenState extends State<RadioStationScreen> {
   }
 }
 
-// Новый экран для таймера сна
+
+
 class SleepTimerScreen extends StatefulWidget {
-  final AudioPlayer audioPlayer; // Добавляем audioPlayer
-  const SleepTimerScreen({super.key, required this.audioPlayer});
+  final AudioPlayer audioPlayer;
+  final int minutes;
+  final int seconds;
+
+  const SleepTimerScreen({
+    super.key,
+    required this.audioPlayer,
+    required this.minutes,
+    required this.seconds,
+  });
 
   @override
   _SleepTimerScreenState createState() => _SleepTimerScreenState();
@@ -589,73 +683,55 @@ class SleepTimerScreen extends StatefulWidget {
 
 class _SleepTimerScreenState extends State<SleepTimerScreen>
     with WidgetsBindingObserver {
-  final TextEditingController _timerController = TextEditingController();
   Timer? _timer;
-  int _remainingTime = 0; // Время в секундах
+  int _remainingTime = 0;
 
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance
-        .addObserver(this); // Подписываемся на изменения состояния приложения
+    WidgetsBinding.instance.addObserver(this);
+    _remainingTime = widget.minutes * 60 + widget.seconds;
+    _startTimer();
   }
 
   @override
   void dispose() {
-    _timer?.cancel(); // Отменяем таймер при уничтожении виджета
-    _timerController.dispose();
-    WidgetsBinding.instance
-        .removeObserver(this); // Отписываемся от изменений состояния приложения
+    _timer?.cancel();
+    WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
 
   void _startTimer() {
-    if (_timer != null) {
-      _timer!.cancel(); // Отменяем предыдущий таймер, если он существует
-    }
-
-    // Получаем время из текстового поля
-    int? inputTime = int.tryParse(_timerController.text);
-    if (inputTime != null && inputTime > 0) {
-      setState(() {
-        _remainingTime = inputTime; // Устанавливаем оставшееся время
-      });
-
-      // Запускаем таймер
-      _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
+    _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (mounted) {
         setState(() {
           if (_remainingTime > 0) {
             _remainingTime--;
           } else {
             _timer!.cancel();
-            _closeApp(); // Закрываем приложение, когда таймер истекает
+            _closeApp();
           }
         });
-      });
-    } else {
-      // Если введено некорректное значение, показываем сообщение
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Введите корректное время в секундах.")),
-      );
-    }
+      }
+    });
   }
 
   void _closeApp() {
-    // Останавливаем радио
-    widget.audioPlayer.stop(); // Останавливаем воспроизведение радио
-    // Закрываем приложение
-    Navigator.of(context).pop(); // Возвращаемся на предыдущий экран
+    widget.audioPlayer.stop();
+    Navigator.of(context).pop();
     Future.delayed(const Duration(milliseconds: 100), () {
-      // Закрываем приложение через небольшую задержку
-      SystemNavigator.pop(); // Закрываем приложение
+      SystemNavigator.pop();
     });
   }
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.paused) {
-      // Приложение приостановлено, можно сохранить состояние таймера
-      // Здесь можно добавить логику, если нужно
+      // Приложение свернуто, таймер продолжает работать
+      print("Приложение свернуто, таймер продолжает работать");
+    } else if (state == AppLifecycleState.resumed) {
+      // Приложение снова активно
+      print("Приложение активно");
     }
   }
 
@@ -669,25 +745,19 @@ class _SleepTimerScreenState extends State<SleepTimerScreen>
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            TextField(
-              controller: _timerController,
-              keyboardType: TextInputType.number,
-              decoration: const InputDecoration(
-                hintText: "Введите время в секундах",
-                border: OutlineInputBorder(),
-              ),
-            ),
-            const SizedBox(height: 20),
-            ElevatedButton(
-              onPressed: _startTimer,
-              child: const Text("Запустить таймер"),
-            ),
-            const SizedBox(height: 20),
             Text(
               _remainingTime > 0
                   ? "Оставшееся время: $_remainingTime секунд"
                   : "Таймер не запущен",
               style: const TextStyle(fontSize: 20),
+            ),
+            const SizedBox(height: 20),
+            TextButton(
+              child: Text("Свернуть", style: TextStyle(color: Colors.black)),
+              onPressed: () {
+                // Просто возвращаемся на предыдущий экран
+                Navigator.of(context).pop();
+              },
             ),
           ],
         ),
