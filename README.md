@@ -56,15 +56,15 @@ Avrora_Radio — лучшее приложение для онлайн прос�
 1. Клонируйте репозиторий:
 
    ```bash
-  **git clone https://github.com/andmas898/AVRORA_RADIO/edit/main/README.md**
+  git clone https://github.com/andmas898/AVRORA_RADIO/edit/main/README.md
    
 2. Перейдите в директорию проекта:
-
-   **cd radio**
+     ```bash
+   cd radio
    
 4. Установите зависимости:
-
-  **flutter pub get**
+ ```bash
+  flutter pub get
 5. Запустите приложение:
-
-  **flutter run**
+ ```bash
+  flutter run
