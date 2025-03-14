@@ -18,9 +18,12 @@ Avrora_Radio — лучшее приложение для онлайн прос�
 <h3>Изображения</h3>
 
 <p float="left">
-  <img src="assets/3.jpg" alt="Image 1" width="500" />
-  <img src="assets/4.jpg" alt="Image 2" width="500" />
-  <img src="assets/5.jpg" alt="Image 3" width="500" />
-  <img src="assets/7.jpg" alt="Image 4" width="500" />
-  <img src="assets/6.jpg" alt="Image 5" width="500" />
+  <img src="assets/1.png" alt="Image 1" width="500" />
+  <img src="assets/2.png" alt="Image 2" width="500" />
+  <img src="assets/3.png" alt="Image 3" width="500" />
+  <img src="assets/4.png" alt="Image 4" width="500" />
+  <img src="assets/5.png" alt="Image 5" width="500" />
+  <img src="assets/6.png" alt="Image 6" width="500" />
+  <img src="assets/7.png" alt="Image 7" width="500" />
+  <img src="assets/8.png" alt="Image 8" width="500" />
 </p>
