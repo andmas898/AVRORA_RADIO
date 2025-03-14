@@ -55,7 +55,7 @@ Avrora_Radio — лучшее приложение для онлайн прос�
 
 1. Клонируйте репозиторий:
   
-  ```git clone https://github.com/andmas898/AVRORA_RADIO/edit/main/README.md```
+  ```git clone https://github.com/andmas898/AVRORA_RADIO```
    
 2. Перейдите в директорию проекта:
 
